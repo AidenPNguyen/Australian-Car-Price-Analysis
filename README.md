@@ -1,6 +1,5 @@
 # Australian Car Price Analysis and Prediction
  
-# Australian Car Price Analysis and Prediction
 ![alt text](carco-dealership.jpg)
 source: https://www.carco.com.au
 ## Project Overview
@@ -39,7 +38,7 @@ This dataset offers a comprehensive snapshot of the Australian car market with 1
 
 •	Car/Suv: Classification indicating whether the vehicle is a car or SUV.
 
-•	Title: Short description summarizing the car’s main features (e.g., "2021 Toyota Camry Hybrid").
+•	Title: Short description summarizing the car main features (e.g., "2021 Toyota Camry Hybrid").
 
 •	UsedOrNew: Condition of the car—whether it is new, used, or a demo vehicle.
 
@@ -59,7 +58,7 @@ This dataset offers a comprehensive snapshot of the Australian car market with 1
 
 •	CylindersinEngine: Number of cylinders in the engine, which affects performance and efficiency.
 
-•	BodyType: The design style of the vehicle’s body (e.g., Sedan, Hatchback, SUV, UTE).
+•	BodyType: The design style of the vehicle body (e.g., Sedan, Hatchback, SUV, UTE).
 
 •	Doors: Number of doors in the car (e.g., 2-door, 4-door).
 
@@ -462,6 +461,7 @@ Avg Price: $37,224
 - EV cars are limited in numbers, with only 38 in NSW, 30 in Victoria, and sparse presence across other states.
 
 According to the 2018 report by ClimateWorks Australia, EV sales in Australia rose from just 49 vehicles in 2011 to 2,284 by 2017, representing a growing trend in EV adoption​.
+
 ![alt text](<Screenshot 2025-02-01 150125.png>)
 
 Despite this growth, the current map shows relatively low numbers of EV cars spread across various Australian states, with New South Wales and Victoria having relatively higher counts (30 and 38 respectively), indicating that adoption is still niche but improving in major states.
@@ -490,6 +490,854 @@ Price vs Fuel Consumption:
 - This plot suggests a slight positive trend between price and fuel consumption. Luxury cars with high engine performance (often consuming more fuel) tend to have higher prices.
 
 - Lower-priced vehicles generally fall in the low-to-medium fuel consumption range, reinforcing the affordability of fuel-efficient models.
+
+### Car Price Prediction using ML model
+
+ ## Data normalization using Label and one-hot encoder and Z-score 
+
+Dropped null values and  converted these column values into numeric values
+
+```Python
+ds.dropna(subset=['Year', 'Engine', 'FuelConsumption', 'Kilometres', 'Price'], inplace=True)
+```
+
+```Python
+ds['Year'] = pd.to_numeric(ds['Year'], errors='coerce')
+ds['Engine'] = pd.to_numeric(ds['Engine'], errors='coerce')
+ds['FuelConsumption'] = pd.to_numeric(ds['FuelConsumption'], errors='coerce')
+ds['Kilometres'] = pd.to_numeric(ds['Kilometres'], errors='coerce')
+ds['Price'] = pd.to_numeric(ds['Price'], errors='coerce')
+```
+- Label and one-hot encoding values
+
+```Python
+from sklearn.preprocessing import LabelEncoder
+
+# Perform label encoding for 'Brand'
+if 'Brand' in ds.columns:
+    LE = LabelEncoder()
+    ds['Brand'] = LE.fit_transform(ds['Brand'])
+
+# One-hot encoding for specified categorical columns
+cat_cols = ['UsedOrNew', 'Transmission', 'DriveType', 'FuelType', 'BodyType']
+for col in cat_cols:
+    if col in ds.columns:
+        dummies = pd.get_dummies(ds[col], prefix=col).astype(int)
+        ds = pd.concat([ds, dummies], axis=1)
+
+# Display the updated dataset
+print("Dataset after one-hot encoding:")
+print(ds.head())
+```
+![alt text](<Screenshot 2025-02-04 122849.png>)
+
+- Checked outliers Z-score 
+```Python
+from scipy.stats import zscore, shapiro
+import statsmodels.api as sm
+
+# Ensure data is numeric, coercing errors to NaN
+relevant_columns = ['Kilometres', 'Engine', 'FuelConsumption', 'Price']
+data = ds[relevant_columns].apply(pd.to_numeric, errors='coerce')
+
+# Drop rows with missing or invalid data
+data = data.dropna()
+
+# Function to check for outliers using Z-score
+def check_outliers_zscore(df, threshold=3):
+    outliers = {}
+    for col in df.columns:
+        z_scores = zscore(df[col])
+        outliers[col] = df[(z_scores > threshold) | (z_scores < -threshold)].shape[0]
+    return outliers
+```
+- Checked assumptions 
+```Python
+# Function to visualize outliers
+def plot_boxplots(df):
+    plasma_cmap = sns.color_palette("plasma", len(df.columns))
+    for i, col in enumerate(df.columns):
+        plt.figure(figsize=(6, 4))
+        sns.boxplot(x=df[col], color=plasma_cmap[i])
+        plt.title(f"Boxplot of {col}", color=plasma_cmap[i])
+        plt.show()
+
+# Function to check residual normality (Shapiro-Wilk test)
+def check_residual_normality(residuals):
+    stat, p_value = shapiro(residuals)
+    print("Shapiro-Wilk Test for Normality:")
+    print(f"Statistic: {stat}, P-value: {p_value}")
+    if p_value > 0.05:
+        print("Residuals appear to be normally distributed.")
+    else:
+        print("Residuals do not appear to be normally distributed.")
+
+# Function to calculate Variance Inflation Factor (VIF)
+def calculate_vif(df):
+    vif_data = pd.DataFrame()
+    vif_data["Feature"] = df.columns
+    vif_data["VIF"] = [
+        1 / (1 - sm.OLS(df[col], sm.add_constant(df.drop(columns=[col]))).fit().rsquared)
+        for col in df.columns
+    ]
+    return vif_data
+
+# Drop the target column 'Price' from the features for VIF calculation
+features = data.drop(columns=['Price'])
+
+# Check and calculate VIF
+vif_results = calculate_vif(features)
+print("Variance Inflation Factor (VIF):")
+print(vif_results)
+
+# Outlier detection
+outliers = check_outliers_zscore(data)
+print("Outliers in each column (Z-Score Method):")
+print(outliers)
+
+# Plot boxplots to visualize outliers
+plot_boxplots(data)
+
+# Example Linear Regression Residual Analysis
+X = data[['Kilometres', 'Engine', 'FuelConsumption']]
+X = sm.add_constant(X)  # Add constant for intercept
+Y = data['Price']
+model = sm.OLS(Y, X).fit()
+residuals = model.resid
+
+# Check residual normality
+check_residual_normality(residuals)
+
+# Plot residuals
+plt.figure(figsize=(6, 4))
+sns.scatterplot(x=model.fittedvalues, y=residuals, color=sns.color_palette("plasma", 10)[5])
+plt.axhline(0, color= 'black', linestyle='--')
+plt.title("Residuals vs Fitted Values", color=sns.color_palette("plasma", 10)[7])
+plt.xlabel("Fitted Values")
+plt.ylabel("Residuals")
+plt.grid()
+plt.show()
+```
+
+> Variance Inflation Factor (VIF):
+>           Feature       VIF
+> 0       Kilometres  1.077397
+> 1           Engine  1.699562
+> 2  FuelConsumption  1.678795
+> Outliers in each column (Z-Score Method):
+> {'Kilometres': 127, 'Engine': 266, 'FuelConsumption': 314, 'Price': 208}
+
+![alt text](<Screenshot 2025-02-04 125259.png>)
+
+> Shapiro-Wilk Test for Normality:
+> Statistic: 0.6460109125263298, P-value: 1.6343811843257495e-98
+> Residuals do not appear to be normally distributed.
+
+![alt text](<Screenshot 2025-02-04 125346.png>)
+
+- VIF Analysis: All features have VIF values near 1, indicating no multicollinearity.
+
+- Outliers: High number of outliers detected in "FuelConsumption" (314), "Engine" (266), and other features.
+
+- Normality Test: Shapiro-Wilk test confirms residuals are not normally distributed (p-value extremely low).
+
+> Outliers and non-normality violate linear regression assumptions, requiring removal and alternative models.
+
+### *Removing outliers using IQR method and Optimizing model using feature importance*
+
+- Removed Outliers using IQR method
+```Python
+from scipy.stats import zscore, shapiro
+import statsmodels.api as sm
+
+# Define a function to remove outliers using the IQR method
+def remove_outliers_iqr(data, columns):
+    """
+    Removes rows with outliers in the specified columns based on the IQR method.
+
+    Parameters:
+        data (DataFrame): The input DataFrame.
+        columns (list): List of column names to check for outliers.
+
+    Returns:
+        DataFrame: The DataFrame with outliers removed.
+    """
+    for col in columns:
+        if col in data.columns:
+            # Ensure the column is numeric
+            data[col] = pd.to_numeric(data[col], errors='coerce')
+            Q1 = data[col].quantile(0.25)
+            Q3 = data[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            data = data[(data[col] >= lower_bound) & (data[col] <= upper_bound)]
+    return data
+
+# Specify columns to check for outliers
+columns_to_check = ['Kilometres', 'Engine', 'FuelConsumption', 'Price']
+
+# Ensure all columns are numeric before applying the IQR method
+for col in columns_to_check:
+    if col in ds.columns:
+        ds[col] = pd.to_numeric(ds[col], errors='coerce')
+
+# Remove outliers using the IQR method
+cleaned_data = remove_outliers_iqr(ds, columns_to_check)
+
+# Display the cleaned dataset
+print("Original Data Shape:", ds.shape)
+print("Cleaned Data Shape (IQR Method):", cleaned_data.shape)
+
+# Select numeric columns for correlation analysis
+relevant_columns = ['Year', 'FuelConsumption', 'Engine', 'Kilometres', 'Price']
+data_for_corr = cleaned_data[relevant_columns].dropna()
+
+# Function to visualize outliers
+def plot_boxplots(cleaned_data):
+    plasma_cmap = sns.color_palette("plasma", len(cleaned_data.columns))
+    for i, col in enumerate(cleaned_data.columns):
+        plt.figure(figsize=(6, 4))
+        sns.boxplot(x=cleaned_data[col], color=plasma_cmap[i])
+        plt.title(f"Boxplot of {col}", color=plasma_cmap[i])
+        plt.show()
+
+# Plot boxplots to visualize outliers
+plot_boxplots(cleaned_data)
+```
+- Optimizing model using feature importance
+```python
+from sklearn.utils.validation import check_X_y
+from sklearn.ensemble import RandomForestRegressor
+
+# Ensure feature columns and target variable have the same number of rows
+X = X.dropna()
+y = y.dropna()
+
+# Align X and y after dropping missing values
+X, y = X.align(y, join='inner', axis=0)
+
+# Identify non-numeric columns
+non_numeric_columns = X.select_dtypes(include=['object']).columns.tolist()
+
+if len(non_numeric_columns) > 0:
+    print("Non-numeric columns detected:", non_numeric_columns)
+    print(X[non_numeric_columns].head())  # View the first few rows
+
+    # Option 1: Drop non-numeric columns if unnecessary
+    X = X.drop(columns=non_numeric_columns, errors='ignore')
+
+    # Option 2: Encode non-numeric columns if needed
+    for col in non_numeric_columns:
+        if col in X.columns:  # Check if column exists before processing
+            if X[col].nunique() <= 10:  # Few unique values, use one-hot encoding
+                dummies = pd.get_dummies(X[col], prefix=col, drop_first=True)
+                X = pd.concat([X.reset_index(drop=True), dummies.reset_index(drop=True)], axis=1)
+            else:  # Many unique values, use label encoding
+                le = LabelEncoder()
+                X[col] = le.fit_transform(X[col])
+
+# Ensure all columns are numeric
+if len(X.select_dtypes(include=['object']).columns) > 0:
+    raise ValueError("There are still non-numeric columns in the dataset. Please review them.")
+
+# Check consistency of X and y
+assert len(X) == len(y), f"Mismatch in number of samples: X ({len(X)}), y ({len(y)})"
+
+# Fit Random Forest model
+rf = RandomForestRegressor(random_state=42)
+rf.fit(X, y)
+
+# Feature importance
+feature_importance = pd.DataFrame({'Feature': X.columns, 'Importance': rf.feature_importances_})
+feature_importance.sort_values(by='Importance', ascending=False, inplace=True)
+print(feature_importance)
+
+# Plot feature importance
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Importance', y='Feature', data=feature_importance, palette='plasma')
+plt.title("Feature Importance from Random Forest")
+plt.xlabel("Importance")
+plt.ylabel("Feature")
+plt.tight_layout()
+plt.show()
+```
+![alt text](<Screenshot 2025-02-04 134342.png>)
+
+
+> Key Features for Model Training: Year, Kilometres, DriveType_Front, Engine, Brand, and FuelConsumption are the most impactful, which is considered for training
+
+## Car Price Prediction using Machine Learning Models
+### Linear regression models
+
+For linear models, we used Lasso Regression, Ridge Regression, ElasticNet Regression
+
+```Python
+from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
+
+# Ensure numeric data and remove any missing values
+X = X.apply(pd.to_numeric, errors='coerce')
+X.dropna(inplace=True)
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Define models
+models = {
+    "Linear Regression": LinearRegression(),
+    "Lasso Regression": Lasso(alpha=1.0),
+    "Ridge Regression": Ridge(alpha=1.0),
+    "ElasticNet Regression": ElasticNet(alpha=1.0, l1_ratio=0.5)
+}
+
+# Train and evaluate models
+results = {}
+for name, model in models.items():
+    model.fit(X_train_scaled, y_train)
+    y_pred = model.predict(X_test_scaled)
+
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    results[name] = {
+        "MAE": mae,
+        "MSE": mse,
+        "R2 Score": r2
+    }
+
+    print(f"--- {name} ---")
+    print(f"MAE: {mae:.2f}")
+    print(f"MSE: {mse:.2f}")
+    print(f"R2 Score: {r2:.2f}")
+    print("-------------------------------")
+
+# Compare model performance visually
+results_df = pd.DataFrame(results).T
+
+# Generate a color palette from the plasma colormap with 10 discrete colors
+custom_cmap = sns.color_palette("plasma", 10)  # Generates 10 colors from plasma colormap
+
+# Plot Model MAE Comparison
+plt.figure(figsize=(10, 5))
+sns.barplot(x=results_df.index, y=results_df['MAE'], hue=results_df.index, palette=custom_cmap, legend=False)
+plt.title("Model MAE Comparison")
+plt.ylabel("MAE")
+plt.xlabel("Regression Model")
+plt.grid(axis='y', linestyle='--')
+plt.show()
+
+# Plot Model MSE Comparison
+plt.figure(figsize=(10, 5))
+sns.barplot(x=results_df.index, y=results_df['MSE'], hue=results_df.index, palette=custom_cmap, legend=False)
+plt.title("Model MSE Comparison")
+plt.ylabel("MSE")
+plt.xlabel("Regression Model")
+plt.grid(axis='y', linestyle='--')
+plt.show()
+
+# Plot Model R2 Score Comparison
+plt.figure(figsize=(10, 5))
+sns.barplot(x=results_df.index, y=results_df['R2 Score'], hue=results_df.index, palette=custom_cmap, legend=False)
+plt.title("Model R2 Score Comparison")
+plt.ylabel("R2 Score")
+plt.xlabel("Regression Model")
+plt.grid(axis='y', linestyle='--')
+plt.show()
+```
+*Lasso Regression*
+
+- MAE: 5992.36
+
+- MSE: 63136474.63
+
+- R2 Score: 0.72
+-------------------------------
+*Ridge Regression*
+
+- MAE: 5992.40
+
+- MSE: 63137953.20
+
+- R2 Score: 0.72
+-------------------------------
+*ElasticNet Regression*
+
+- MAE: 6298.42
+
+- MSE: 72658244.09
+
+- R2 Score: 0.68
+
+![alt text](<Screenshot 2025-02-04 150207.png>)
+
+Applied Hyperparameter tunning to increase model accuracy
+
+> Lasso and Ridge Regression: Both show identical results with a MAE of ~5992, MSE of ~63 million, and an R² score of 0.72, suggesting that these models capture the data pattern but still leave room for optimization.
+
+> ElasticNet Regression: Performs worse with a higher MAE (~6298) and lower R² score (0.68), indicating it's less effective in its current form. 
+
+```Python
+from sklearn.model_selection import GridSearchCV
+
+# Define hyperparameter grids for each model
+param_grid_ridge = {
+    'alpha': [0.01, 0.1, 1, 10, 100]
+}
+
+param_grid_lasso = {
+    'alpha': [0.01, 0.1, 1, 10, 100]
+}
+
+param_grid_elasticnet = {
+    'alpha': [0.01, 0.1, 1, 10, 100],
+    'l1_ratio': [0.1, 0.5, 0.9]
+}
+
+# Initialize models
+ridge = Ridge()
+lasso = Lasso()
+elastic_net = ElasticNet()
+
+# Perform GridSearchCV for Ridge Regression
+ridge_search = GridSearchCV(ridge, param_grid_ridge, cv=5, scoring='r2', n_jobs=-1)
+ridge_search.fit(X_train_scaled, y_train)
+
+# Perform GridSearchCV for Lasso Regression
+lasso_search = GridSearchCV(lasso, param_grid_lasso, cv=5, scoring='r2', n_jobs=-1)
+lasso_search.fit(X_train_scaled, y_train)
+
+# Perform GridSearchCV for ElasticNet Regression
+elasticnet_search = GridSearchCV(elastic_net, param_grid_elasticnet, cv=5, scoring='r2', n_jobs=-1)
+elasticnet_search.fit(X_train_scaled, y_train)
+
+# Display the best parameters and R2 scores
+print("Best Ridge Regression Parameters:", ridge_search.best_params_)
+print("Best Ridge R2 Score:", ridge_search.best_score_)
+
+print("Best Lasso Regression Parameters:", lasso_search.best_params_)
+print("Best Lasso R2 Score:", lasso_search.best_score_)
+
+print("Best ElasticNet Regression Parameters:", elasticnet_search.best_params_)
+print("Best ElasticNet R2 Score:", elasticnet_search.best_score_)
+```
+
+- Best Ridge Regression Parameters: {'alpha': 10}
+- Best Ridge R2 Score: 0.7248487791101313
+- Best Lasso Regression Parameters: {'alpha': 0.01}
+- Best Lasso R2 Score: 0.7248577018946202
+- Best ElasticNet Regression Parameters: {'alpha': 0.01, 'l1_ratio': 0.9}
+- Best ElasticNet R2 Score: 0.7248500976273137
+
+> The R² scores after tunning is very close to Ridge's performance, meaning 3 linear models didn't show a significant improvement. This suggests that most of the features are relevant, and all the model did not remove many.
+
+> As linear models show limited performance, non-linear models (e.g., Random Forest, Gradient Boosting) should be considered to capture complex relationships. Therefore, we will try to apply non-linear models for better prediction.
+
+### Non-linear regression models
+
+For non-linear models, we applied Decision Tree, Random Forest, Gradient Boosting, 
+
+```Python
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+
+# Define non-linear models
+non_linear_models = {
+    "Decision Tree": DecisionTreeRegressor(max_depth=10, random_state=42),
+    "Random Forest": RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
+    "Gradient Boosting": GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42)
+}
+
+# Train and evaluate non-linear models
+non_linear_results = {}
+for name, model in non_linear_models.items():
+    model.fit(X_train_scaled, y_train)
+    y_pred = model.predict(X_test_scaled)
+
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    non_linear_results[name] = {
+        "MAE": mae,
+        "MSE": mse,
+        "R2 Score": r2
+    }
+
+    print(f"--- {name} ---")
+    print(f"MAE: {mae:.2f}")
+    print(f"MSE: {mse:.2f}")
+    print(f"R2 Score: {r2:.2f}")
+    print("-------------------------------")
+
+# Convert results to DataFrame and visualize
+non_linear_results_df = pd.DataFrame(non_linear_results).T
+
+# Plot results
+plt.figure(figsize=(10, 5))
+sns.barplot(x=non_linear_results_df.index, y=non_linear_results_df['R2 Score'], hue=non_linear_results_df.index, palette='plasma', legend=False)
+plt.title("Non-Linear Regression Model R2 Score Comparison")
+plt.ylabel("R2 Score")
+plt.xlabel("Model")
+plt.grid(axis='y', linestyle='--')
+plt.show()
+
+# Scatter plot for predicted vs actual values
+plt.figure(figsize=(8, 6))
+colors = sns.color_palette("plasma", len(non_linear_models))
+
+for (name, model), color in zip(non_linear_models.items(), colors):
+    y_pred = model.predict(X_test_scaled)
+    plt.scatter(y_test, y_pred, alpha=0.6, label=name, color=color)
+
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='black', linestyle='--')
+plt.xlabel("Actual Prices")
+plt.ylabel("Predicted Prices")
+plt.title("Predicted vs Actual Prices for Non-Linear Models")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Residual distribution plot using plasma colormap
+plt.figure(figsize=(8, 6))
+
+for (name, model), color in zip(non_linear_models.items(), colors):
+    y_pred = model.predict(X_test_scaled)
+    residuals = y_test - y_pred
+    sns.histplot(residuals, kde=True, label=name, alpha=0.6, color=color)
+
+plt.title("Residual Distribution for Non-Linear Models")
+plt.xlabel("Residuals")
+plt.legend()
+plt.grid()
+plt.show()
+```
+
+*Decision Tree*
+
+- MAE: 5062.49
+
+- MSE: 51054579.81
+
+- R2 Score: 0.77
+-------------------------------
+*Random Forest*
+
+- MAE: 4409.63
+
+- MSE: 37682168.13
+
+- R2 Score: 0.83
+-------------------------------
+*Gradient Boosting*
+
+- MAE: 3949.13
+
+- MSE: 29349643.32
+
+- R2 Score: 0.87
+
+Applied Hyperparameter tunning including adding features "Brand" and adjusting figure for "n_estimators", "max_depth" to increase models accurary 
+
+```Python
+# Define feature columns and target variable
+feature_columns = ['Year', 'Kilometres', 'Engine', 'FuelConsumption', 'Brand']
+X = cleaned_data[feature_columns]
+y = cleaned_data['Price']
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Define parameter grid for Random Forest
+rf_param_grid = {
+    'n_estimators': [50, 100, 150, 500],
+    'max_depth': [5, 10, 20, 30, 50],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+# Define parameter grid for Gradient Boosting
+gb_param_grid = {
+    'n_estimators': [50, 100, 150, 500],
+    'learning_rate': [0.01, 0.1, 0.2],
+    'max_depth': [3, 5, 7, 10],
+    'subsample': [0.8, 1.0]
+}
+
+# Hyperparameter tuning for Random Forest
+rf = RandomForestRegressor(random_state=42)
+rf_grid_search = GridSearchCV(rf, rf_param_grid, cv=5, scoring='r2', n_jobs=-1)
+rf_grid_search.fit(X_train_scaled, y_train)
+best_rf = rf_grid_search.best_estimator_
+print("Best Random Forest Parameters:", rf_grid_search.best_params_)
+print("Best Random Forest R2 Score:", rf_grid_search.best_score_)
+
+# Hyperparameter tuning for Gradient Boosting
+gb = GradientBoostingRegressor(random_state=42)
+gb_grid_search = GridSearchCV(gb, gb_param_grid, cv=5, scoring='r2', n_jobs=-1)
+gb_grid_search.fit(X_train_scaled, y_train)
+best_gb = gb_grid_search.best_estimator_
+print("Best Gradient Boosting Parameters:", gb_grid_search.best_params_)
+print("Best Gradient Boosting R2 Score:", gb_grid_search.best_score_)
+
+# Evaluate the tuned models
+y_pred_rf = best_rf.predict(X_test_scaled)
+y_pred_gb = best_gb.predict(X_test_scaled)
+y_pred_dt = DecisionTreeRegressor(max_depth=10, random_state=42).fit(X_train_scaled, y_train).predict(X_test_scaled)
+
+cmap = plt.get_cmap("plasma")
+colors = [cmap(0.2), cmap(0.5), cmap(0.8)]  # Choosing 3 distinct colors from plasma colormap
+
+# Plot predicted vs actuall
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred_rf, color=colors[0], alpha=0.6, label='Random Forest')
+plt.scatter(y_test, y_pred_gb, color=colors[1], alpha=0.6, label='Gradient Boosting')
+plt.scatter(y_test, y_pred_dt, color=colors[2], alpha=0.6, label='Decision Tree')
+
+# Reference line
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='black', lw=2, linestyle='--')
+
+plt.xlabel("Actual Prices")
+plt.ylabel("Predicted Prices")
+plt.title("Predicted vs Actual Prices (Plasma Colormap)")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Residual plots
+residuals_rf = y_test - y_pred_rf
+residuals_gb = y_test - y_pred_gb
+residuals_dt = y_test - y_pred_dt
+
+plt.figure(figsize=(8, 6))
+sns.histplot(residuals_rf, kde=True, color=colors[0], label='Random Forest Residuals')
+sns.histplot(residuals_gb, kde=True, color=colors[1], label='Gradient Boosting Residuals')
+sns.histplot(residuals_dt, kde=True, color=colors[2], label='Decision Tree Residuals')
+
+plt.title("Residual Distribution (Plasma Colormap)")
+plt.xlabel("Residuals")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Print evaluation metrics
+print("Random Forest Regression Metrics:")
+print(f"MAE: {mean_absolute_error(y_test, y_pred_rf):.2f}")
+print(f"MSE: {mean_squared_error(y_test, y_pred_rf):.2f}")
+print(f"R² Score: {r2_score(y_test, y_pred_rf):.2f}")
+
+print("\nGradient Boosting Regression Metrics:")
+print(f"MAE: {mean_absolute_error(y_test, y_pred_gb):.2f}")
+print(f"MSE: {mean_squared_error(y_test, y_pred_gb):.2f}")
+print(f"R² Score: {r2_score(y_test, y_pred_gb):.2f}")
+
+print("\nDecision Tree Regression Metrics:")
+print(f"MAE: {mean_absolute_error(y_test, y_pred_dt):.2f}")
+print(f"MSE: {mean_squared_error(y_test, y_pred_dt):.2f}")
+print(f"R² Score: {r2_score(y_test, y_pred_dt):.2f}")
+```
+- Best Random Forest Parameters: {'max_depth': 20, 'min_samples_leaf': 1, 'min_samples_split': 5, 'n_estimators': 500}
+
+> Best Random Forest R2 Score: 0.8711870416728089
+
+- Best Gradient Boosting Parameters: {'learning_rate': 0.1, 'max_depth': 7, 'n_estimators': 500, 'subsample': 0.8}
+
+> Best Gradient Boosting R2 Score: 0.8931214990864003
+
+ *XGBoost and LightGBM models*
+
+```Python
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+
+# Define feature columns and target variable
+feature_columns = ['Year', 'Kilometres', 'Engine', 'FuelConsumption', 'BodyType','Brand']
+X = cleaned_data[feature_columns]
+y = cleaned_data['Price']
+
+# Drop rows with missing target variable or features
+X = X.dropna(subset=feature_columns)
+y = y.dropna()
+
+# One-hot encode the categorical feature 'BodyType'
+encoder = OneHotEncoder(drop='first', sparse_output=False)
+bodytype_encoded = encoder.fit_transform(X[['BodyType']])
+bodytype_encoded_df = pd.DataFrame(bodytype_encoded, columns=encoder.get_feature_names_out(['BodyType']))
+
+# Drop the original categorical column and merge the encoded data
+X = X.drop(columns=['BodyType'])
+X = pd.concat([X.reset_index(drop=True), bodytype_encoded_df.reset_index(drop=True)], axis=1)
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the numerical features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train XGBoost model
+xgb_model = XGBRegressor(
+    objective='reg:squarederror',
+    n_estimators=200,
+    max_depth=7,
+    learning_rate=0.1,
+    subsample=0.8,
+    random_state=42
+)
+xgb_model.fit(X_train_scaled, y_train)
+
+# Train LightGBM model
+lgb_model = LGBMRegressor(
+    n_estimators=200,
+    max_depth=7,
+    learning_rate=0.1,
+    num_leaves=31,
+    random_state=42
+)
+lgb_model.fit(X_train_scaled, y_train)
+
+# Evaluate the models
+y_pred_xgb = xgb_model.predict(X_test_scaled)
+y_pred_lgb = lgb_model.predict(X_test_scaled)
+
+def evaluate_model(model_name, y_test, y_pred):
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    print(f"--- {model_name} ---")
+    print(f"MAE: {mae:.2f}")
+    print(f"MSE: {mse:.2f}")
+    print(f"R² Score: {r2:.2f}")
+    print("-------------------------------")
+
+# Print the evaluation results
+evaluate_model("XGBoost", y_test, y_pred_xgb)
+evaluate_model("LightGBM", y_test, y_pred_lgb)
+```
+*XGBoost*
+
+- MAE: 3228.19
+
+- MSE: 20543356.00
+
+- R² Score: 0.91
+-------------------------------
+*LightGBM*
+
+- MAE: 3427.65
+
+- MSE: 22514402.09
+
+- R² Score: 0.90
+
+### Visualizing non-linear models prediction using scatter plots
+ ![alt text](output_38_2.png)
+
+- Before Tuning (left charts): There was greater dispersion around the diagonal line, indicating less accurate predictions with several points significantly deviating from the actual values. Regarding the residual histogram charts, it show greaters spread and variability, indicating inconsistent prediction errors across models. The residuals deviate more from zero, suggesting suboptimal fit.
+
+![alt text](output_38_3.png)
+
+- After Tuning (right charts): The points are more concentrated along the diagonal line, reflecting improved model alignment with actual prices. This indicates that hyperparameter tuning helped the models achieve better prediction accuracy by reducing errors. Otherwise, the residuals are more concentrated around zero with a narrower distribution, indicating improved model performance and reduced error variance
+
+![alt text](output_41_1.png)
+
+
+### Model evaluation
+
+| Model | Random Forest | Gradient Boosting | Decision Tree | XGBoost | LightGBM |
+|-------|---------------|-------------------|---------------|---------|----------|
+| MAE | 3684.26 | 3412.15 | 5146.04 | 3228.19 | 3427.65 |
+| MSE | 27656611.43 | 23121459.20 | 51748071.00 | 20543356.00 | 22514402.09 |
+| R^2 score | 0.88 | 0.90 | 0.77 | 0.91 | 0.90 |
+
+- XGBoost shows the lowest MAE (3352.13) and MSE (22149432.95), indicating it's the most accurate model in predicting car prices.
+
+- Gradient Boosting performs similarly well with an R² Score of 0.90 and relatively low error values.
+
+- Random Forest also performs well but has slightly higher error values compared to XGBoost and LightGBM.
+
+- Decision Tree has the highest MAE and MSE, suggesting it's the least reliable model in this comparison.
+
+
+## The key insights
+*The Top Factors Behind Car Prices*
+
+ - If you’re buying a 2023 model or beyond, expect higher prices.
+
+Why? Features like advanced technology and fuel efficiency boost value.
+
+- Cars with low mileage are in high demand. The fewer kilometres driven, the higher the price.
+
+*What Really Matters in a Car's Price?*
+
+We ranked the most crucial factors, and the results were eye-opening:
+
+ > Year, Kilometres, Engine Size, and Fuel Consumption take the top spots.
+
+> Surprisingly, body style (SUV, sedan, UTE) or fuel type (petrol, hybrid, electric) had less influence than expected.
+
+So don't assume a hybrid SUV will cost more just because it's trendy!
+
+Our models competed to predict prices as accurately as possible:
+
+*What’s Next for Car Prices After 2024?*
+
+> Looking ahead, the market’s focus is shifting toward affordable and tech-savvy cars.
+
+> Sustainability might soon play a bigger role. Keep an eye on incentives for electric vehicles and green technology.
+
+*Recommendations for Car Enthusiasts and Data Experts*
+
+> For buyers: Look at the core factors – Year, Kilometres, Engine – to understand price trends.
+> For data geeks: Consider adding external market factors like depreciation or safety ratings to improve future models.
+
+
+## Project challenges
+
+During this project, several challenges emerged, particularly in the data preparation and model development phases. Below are the key issues faced and their impact on the project:
+
+1. Data Cleaning Issues
+
+The initial data cleaning process using Python did not fully address all incorrect values and missing data.
+Some anomalies persisted, such as extreme outliers and mismatched entries in critical features like BodyType and location.
+Additionally, Python scripts failed to accurately handle certain missing values due to inconsistencies in the dataset format.
+As a result, I had to manually verify and correct the data using Excel, which was both time-consuming and prone to human error.
+
+2. Dataset Limitations
+
+The dataset lacked important features that could influence car prices, such as:
+
+- Economic factors like depreciation and car safety ratings.
+- Consumer preferences and seasonal demand patterns.
+
+This limitation restricted the predictive accuracy and versatility of the models.
+
+3. Model Limitations and Improvement Potential
+
+While non-linear models like XGBoost, LightGBM and Gradient Boosting performed reasonably well, there is always room for improvement:
+Hyperparameter tuning improved accuracy but could be further refined through techniques like grid search or Bayesian optimization.
+The models occasionally struggled with outliers and complex non-linear relationships that were not fully captured by the current feature set.
+Incorporating additional data, such as external factors, could enhance prediction performance
+
+## Conclusion
+
 ## References
 Data source: https://www.kaggle.com/datasets/nelgiriyewithana/australian-vehicle-prices
 ClimateWork Australia report: https://www.aph.gov.au/DocumentStore.ashx?id=be4e9b0a-bf39-442f-8acb-9830038f3617&subId=658041
