@@ -2,6 +2,24 @@
  
 ![alt text](carco-dealership.jpg)
 source: https://www.carco.com.au
+
+## Table of Contents
+[Project Overview](#project-overview)
+[Project goals and objectives](#project-goals-and-objectives)
+[About the data](#about-the-data)
+[Dataset Attributes Overview](#dataset-attributes-overview)
+[Tools and libraries](#️-tools-and-libraries)
+[Methodology](#methodology)
+    [Data preprocessing](#data-preproccessing)
+    [Data Visualization](#data-visualization)
+    [Data preparing for model training](#data-preparing-for-model-training)
+    [Car Car Price Prediction using Machine Learning Models](#car-price-prediction-using-machine-learning-models)
+        [Linear regression models](#linear-regression-models)
+        [Non-linear regression models](#non-linear-regression-models)
+    [Model evaluation](#model-evaluation)
+[The key insights](#the-key-insights)
+[Project challenges](#project-challenges)
+[Conclusion](#conclusion)
 ## Project Overview
 This project started as a personal interest in cars and the intention to buy a car in Australia. Given the complexities of car pricing, I wanted to understand price trends, key factors affecting costs, and the shift towards electric vehicles (EVs). 🚗
 
@@ -491,9 +509,9 @@ Price vs Fuel Consumption:
 
 - Lower-priced vehicles generally fall in the low-to-medium fuel consumption range, reinforcing the affordability of fuel-efficient models.
 
-### Car Price Prediction using ML model
+### Data preparing for model training
 
- ## Data normalization using Label and one-hot encoder and Z-score 
+ #### Data normalization using Label and one-hot encoder and Z-score 
 
 Dropped null values and  converted these column values into numeric values
 
@@ -643,7 +661,7 @@ plt.show()
 
 > Outliers and non-normality violate linear regression assumptions, requiring removal and alternative models.
 
-### *Removing outliers using IQR method and Optimizing model using feature importance*
+#### *Outliers removing using IQR method and optimizing model using feature importance*
 
 - Removed Outliers using IQR method
 ```Python
@@ -705,7 +723,7 @@ def plot_boxplots(cleaned_data):
 # Plot boxplots to visualize outliers
 plot_boxplots(cleaned_data)
 ```
-- Optimizing model using feature importance
+- Optimized model using feature importance
 ```python
 from sklearn.utils.validation import check_X_y
 from sklearn.ensemble import RandomForestRegressor
@@ -767,10 +785,10 @@ plt.show()
 
 > Key Features for Model Training: Year, Kilometres, DriveType_Front, Engine, Brand, and FuelConsumption are the most impactful, which is considered for training
 
-## Car Price Prediction using Machine Learning Models
-### Linear regression models
+### Car Price Prediction using Machine Learning Models
+#### Linear regression models
 
-For linear models, we used Lasso Regression, Ridge Regression, ElasticNet Regression
+For linear models, I used Lasso Regression, Ridge Regression, ElasticNet Regression
 
 ```Python
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
@@ -938,11 +956,11 @@ print("Best ElasticNet R2 Score:", elasticnet_search.best_score_)
 
 > The R² scores after tunning is very close to Ridge's performance, meaning 3 linear models didn't show a significant improvement. This suggests that most of the features are relevant, and all the model did not remove many.
 
-> As linear models show limited performance, non-linear models (e.g., Random Forest, Gradient Boosting) should be considered to capture complex relationships. Therefore, we will try to apply non-linear models for better prediction.
+> As linear models show limited performance, non-linear models (e.g., Random Forest, Gradient Boosting) should be considered to capture complex relationships. Therefore, I will try to apply non-linear models for better prediction.
 
 ### Non-linear regression models
 
-For non-linear models, we applied Decision Tree, Random Forest, Gradient Boosting, 
+For non-linear models, I applied Decision Tree, Random Forest, Gradient Boosting, 
 
 ```Python
 from sklearn.tree import DecisionTreeRegressor
@@ -1287,7 +1305,7 @@ Why? Features like advanced technology and fuel efficiency boost value.
 
 *What Really Matters in a Car's Price?*
 
-We ranked the most crucial factors, and the results were eye-opening:
+I ranked the most crucial factors, and the results were eye-opening:
 
  > Year, Kilometres, Engine Size, and Fuel Consumption take the top spots.
 
@@ -1337,6 +1355,14 @@ The models occasionally struggled with outliers and complex non-linear relations
 Incorporating additional data, such as external factors, could enhance prediction performance
 
 ## Conclusion
+
+This project provided valuable insights into the complexities of car pricing in Australia, driven by both personal interest and the desire to make informed car-buying decisions. By analyzing a comprehensive car dataset, applying data visualization techniques, and leveraging machine learning models, I successfully identified key factors influencing prices and highlighted emerging trends, including the shift towards electric vehicles (EVs).
+
+Key findings indicate that Year, Kilometres, and Engine Size are the most critical factors impacting car prices. Machine learning models, particularly XGBoost and Gradient Boosting, demonstrated improved accuracy after hyperparameter tuning, though there is still room for optimization.
+
+Challenges such as data cleaning issues (requiring manual verification in Excel) and dataset limitations constrained the models' predictive potential. Nonetheless, the project achieved its primary goals by providing actionable insights on pricing trends and enabling better decision-making for potential car buyers. Future enhancements could include integrating economic indicators and consumer demand data to refine predictions further.
+
+Overall, this project serves as a reliable resource for car buyers, industry researchers, and analysts, offering both a deeper understanding of car pricing trends and the potential impact of Australia's growing EV market. 🚗📊
 
 ## References
 Data source: https://www.kaggle.com/datasets/nelgiriyewithana/australian-vehicle-prices
