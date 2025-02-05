@@ -5,21 +5,37 @@ source: https://www.carco.com.au
 
 ## Table of Contents
 [Project Overview](#project-overview)
+
 [Project goals and objectives](#project-goals-and-objectives)
+
 [About the data](#about-the-data)
+
 [Dataset Attributes Overview](#dataset-attributes-overview)
+
 [Tools and libraries](#️-tools-and-libraries)
+
 [Methodology](#methodology)
-    [Data preprocessing](#data-preproccessing)
-    [Data Visualization](#data-visualization)
-    [Data preparing for model training](#data-preparing-for-model-training)
-    [Car Car Price Prediction using Machine Learning Models](#car-price-prediction-using-machine-learning-models)
-        [Linear regression models](#linear-regression-models)
-        [Non-linear regression models](#non-linear-regression-models)
-    [Model evaluation](#model-evaluation)
+
+- [Data preprocessing](#data-preproccessing)
+
+- [Data Visualization](#data-visualization)
+
+- [Data preparing for model training](#data-preparing-for-model-training)
+
+- [Car Price Prediction using Machine Learning Models](#car-price-prediction-using-machine-learning-models)
+
+    - [*Linear regression models*](#linear-regression-models)
+
+    - [*Non-linear regression models*](#non-linear-regression-models)
+
+- [Model evaluation](#model-evaluation)
+
 [The key insights](#the-key-insights)
+
 [Project challenges](#project-challenges)
+
 [Conclusion](#conclusion)
+
 ## Project Overview
 This project started as a personal interest in cars and the intention to buy a car in Australia. Given the complexities of car pricing, I wanted to understand price trends, key factors affecting costs, and the shift towards electric vehicles (EVs). 🚗
 
@@ -896,11 +912,12 @@ plt.show()
 
 ![alt text](<Screenshot 2025-02-04 150207.png>)
 
-Applied Hyperparameter tunning to increase model accuracy
 
 > Lasso and Ridge Regression: Both show identical results with a MAE of ~5992, MSE of ~63 million, and an R² score of 0.72, suggesting that these models capture the data pattern but still leave room for optimization.
 
 > ElasticNet Regression: Performs worse with a higher MAE (~6298) and lower R² score (0.68), indicating it's less effective in its current form. 
+
+Applied Hyperparameter tunning to increase model accuracy
 
 ```Python
 from sklearn.model_selection import GridSearchCV
