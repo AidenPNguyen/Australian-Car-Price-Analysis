@@ -1,2 +1,3 @@
-*.ipynb linguist-vendored
-*.py linguist-detectable=true
+*.py linguist-vendored
+*.ipynb linguist-detectable=true
+*.ipynb linguist-language=Jupyter Notebook
